@@ -9,47 +9,41 @@ constexpr uint8_t PIN_DB5 = 9;
 constexpr uint8_t PIN_DB6 = 10;
 constexpr uint8_t PIN_DB7 = 11;
 LiquidCrystal lcd(PIN_RS, PIN_EN, PIN_DB4, PIN_DB5, PIN_DB6, PIN_DB7);
+byte screen_mode = 1; // По умолчанию выставлен первый экран, в котором предлагается установить число оборотов.
 
 const uint8_t DT = 2;
 const uint8_t CLK = 3;
 const uint8_t SW = 4;
-
 EncButton<EB_TICK, DT, CLK, SW> enc;  // энкодер с кнопкой
 
-
 const int line_finder_pin = 5; // Датчик линии (тахометр) на 5 пин
-
-int16_t turns = 0; // Количество оборотов (изначально и минимально: 0, максимально: ~32500)
+int16_t turns = 0; // Количество необходимых оборотов (изначально и минимально: 0, максимально: ~32500)
 int16_t angle = 30; // Угол между витками, влияет на плотность намотки (по умолчанию 30 градусов)
-int need_turns; // FixMe: Целевое количество оборотов, должно выставляться кнопками или крутилкой
-
+int current_turns = -1; // Текущее количество оборотов
 bool is_black_before = false; // Белый цвет на прошлой итерации цикла
 
-byte screen_mode = 1; // По умолчанию выставлен первый экран, в котором предлагается установить число оборотов.
-
 void setup() {
-  // pinMode(line_finder_pin, INPUT); // Инициализируем датчик линии
+  pinMode(line_finder_pin, INPUT); // Инициализируем датчик линии
   Serial.begin(9600);
-  // need_turns = 15;
   enc.setEncType(EB_HALFSTEP);  // тип энкодера: EB_FULLSTEP (0) по умолч., EB_HALFSTEP (1) если энкодер делает один поворот за два щелчка
-  lcd.begin(16, 2);                                                        
-  // lcd.setCursor(0, 0); // Устанавливаем курсор в колонку 0 и строку 0
-  // lcd.print("Download..."); // Печатаем первую строку
-  // lcd.setCursor(0, 1);
-  // lcd.print("Do It Yourself");
+  lcd.begin(16, 2);
+  lcd.setCursor(0, 0); // Устанавливаем курсор в колонку 0 и строку 0
+  lcd.print("Download..."); // Печатаем первую строку
+  lcd.setCursor(0, 1);
+  lcd.print("Do It Yourself");
   Screen_1();
 }
 
 void loop() {
-  
+
   // Сначала открываем меню 1 или 2, между ними можно переключаться
   // Потом, когда нажали start, началась намотка, запускается while ниже и экран 3
-  
-  switch(screen_mode){
-    
-    case 1: 
+
+  switch (screen_mode) {
+
+    case 1:
       enc.tick(); // опрос происходит здесь
-      Serial.println("Экран 1");
+      //Serial.println("Экран 1");
       if (enc.left()) {
         turns--;     // если энкодер влево, то уменьшаем число оборотов (мин. 0)
         Screen_1(); // включаем первый экран
@@ -71,7 +65,7 @@ void loop() {
 
     case 2:
       enc.tick(); // опрос происходит здесь
-      Serial.println("Экран 2");
+      //Serial.println("Экран 2");
       if (enc.left()) {
         angle--;     // если энкодер влево, то уменьшаем угол (мин. 0)
         Screen_2(); // включаем первый экран
@@ -83,30 +77,43 @@ void loop() {
       }
       if (angle >= 360) angle = 360;
       if (enc.click()) {
-        screen_mode = 4;   // если энкодер был нажат, то переключаемся на экран 2
-        Screen_4(); // включаем первый экран
+        screen_mode = 3;   // если энкодер был нажат, то переключаемся на экран 2
+        Screen_3(); // включаем первый экран
+        break;
+      }
+      if (enc.()) {
+        screen_mode = 1;   // если энкодер был нажат дважды, то переключаемся на экран 1
+        Screen_1(); // включаем первый экран
         break;
       }
       break;
-    // case 3:
-    //   enc.tick(); // опрос происходит здесь
-    //   while (turns != need_turns){
-    //     if (digitalRead(line_finder_pin) == HIGH && !is_black_before){  // Если был белый, а теперь черный (т.е. изолента прошла круг), то
-    //       turns++;                                                      // увеличиваем число оборотов на 1
-    //       is_black_before = true;                                       // и меняем флаг, что был черный
-    //       Serial.println(turns);
-    //     }
-    //     if (!digitalRead(line_finder_pin) == HIGH){
-    //       is_black_before = false;
-    //     }
-    //     delay(50);                                                      // ToDo: Задержку подогнать под скорость вращения тороида...
-    //   }
-    //   screen_mode = 4;
-    //   break;
+
+    case 3:
+      while (turns != current_turns) {
+        enc.tick(); // опрос происходит здесь
+        if (enc.click()) {
+          break;
+        }
+        if (digitalRead(line_finder_pin) == HIGH && !is_black_before) { // Если был белый, а теперь черный (т.е. изолента прошла круг), то
+          current_turns++;                                              // увеличиваем число оборотов на 1
+          is_black_before = true;                                       // и меняем флаг, что был черный
+        }
+        if (!digitalRead(line_finder_pin) == HIGH) {
+          is_black_before = false;
+        }
+        Screen_3();
+        Serial.println(current_turns);
+        delay(50);                                                      // ToDo: Задержку подогнать под скорость вращения тороида...
+      }
+      screen_mode = 4;
+      Screen_4();
+      current_turns = 0;
+      break;
+
     case 4:
       enc.tick(); // опрос происходит здесь
       // Когда намотка закончилась, выводим экран 4, а на нём что-то типа:
-      Serial.println("Намотка закончена!");
+      //Serial.println("Намотка закончена!");
       if (enc.click()) {
         screen_mode = 1;   // если энкодер был нажат, то переключаемся на экран 2
         Screen_1();
@@ -116,7 +123,7 @@ void loop() {
   }
 }
 
-void Screen_1(){
+void Screen_1() {
   lcd.print("                "); // очистка дисплея
   lcd.setCursor(0, 0); // Устанавливаем курсор в колонку 0 и строку 0
   // lcd.print("  Число витков  "); // Печатаем первую строку
@@ -125,9 +132,10 @@ void Screen_1(){
   // lcd.print("Витков: ");
   lcd.print("Turns: ");
   lcd.print(turns);
+  lcd.print("        ");
 }
 
-void Screen_2(){
+void Screen_2() {
   lcd.print("                "); // очистка дисплея
   lcd.setCursor(0, 0); // Устанавливаем курсор в колонку 0 и строку 0
   // lcd.print("Плотность витков"); // Печатаем первую строку
@@ -136,12 +144,21 @@ void Screen_2(){
   // lcd.print("Угол: ");
   lcd.print("Angle: ");
   lcd.print(angle);
+  lcd.print("        ");
 }
 
-void Screen_3(){
+void Screen_3() {
+  lcd.print("                "); // очистка дисплея
+  lcd.setCursor(0, 0); // Устанавливаем курсор в колонку 0 и строку 0
+  // lcd.print("Сделано!"); // Печатаем первую строку
+  lcd.print("Turns done: ");
+  lcd.print(current_turns);
+  lcd.print("   ");
+  lcd.setCursor(0, 1);
+  lcd.print("                ");
 }
 
-void Screen_4(){
+void Screen_4() {
   lcd.print("                "); // очистка дисплея
   lcd.setCursor(0, 0); // Устанавливаем курсор в колонку 0 и строку 0
   // lcd.print("Сделано!"); // Печатаем первую строку
@@ -149,4 +166,3 @@ void Screen_4(){
   lcd.setCursor(0, 1);
   lcd.print("                ");
 }
-
