@@ -1,6 +1,6 @@
 #include <LiquidCrystal.h>
 #include <EncButton.h>
-
+// добавить либу Stepper
 // Подключаем дисплей 16х2
 constexpr uint8_t PIN_RS = 6;
 constexpr uint8_t PIN_EN = 7;
