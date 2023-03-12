@@ -1,6 +1,7 @@
 #include <LiquidCrystal.h>
 #include <EncButton.h>
-// добавить либу Stepper
+#include <Stepper.h>
+
 // Подключаем дисплей 16х2
 constexpr uint8_t PIN_RS = 6;
 constexpr uint8_t PIN_EN = 7;
@@ -17,31 +18,23 @@ const uint8_t CLK = 3;
 const uint8_t SW = 4;
 EncButton<EB_TICK, DT, CLK, SW> enc;  // энкодер с кнопкой
 
-// ПОдключение шаговика
-const int dirPin = 12;
-const int stepPin = 13;
-const int stepsPerRevolution = 200; // количество шагов на оборот, нужно ли?..
-
 const int line_finder_pin = 5; // Датчик линии (тахометр) на 5 пин
 
-int16_t turns = 0; // Количество необходимых оборотов (изначально и минимально: 0, максимально: ~32500)
+int16_t turns = 0; // Количество необходимых витков (изначально и минимально: 0, максимально: ~32500) - оно же количество шагов для полного оборота шаговика
 int16_t angle = 30; // Угол между витками, влияет на плотность намотки (по умолчанию 30 градусов)
 int current_turns = -1; // Текущее количество оборотов
 bool is_black_before = false; // Белый цвет на прошлой итерации цикла
 
+Stepper myStepper(200, A3, A2, A1, A0); // Создаем объект шаговика (200 - это количество шагов, необходимых для одного полного оборота шаговика, т.е. 1,8 градуса - минимуальный поворот)
+
 void setup() {
   pinMode(line_finder_pin, INPUT); // Инициализируем датчик линии
-  
-  pinMode(stepPin, OUTPUT); // Подключение шаговика 
-  pinMode(dirPin, OUTPUT); // Подключение шаговика
-  
-  Serial.begin(9600);
+
+  myStepper.setSpeed(60); // Устанавливаем скорость вращения 60 об./мин.= 1 об./сек = 200 шагов / сек
+
+//  Serial.begin(9600);
   enc.setEncType(EB_HALFSTEP);  // тип энкодера: EB_FULLSTEP (0) по умолч., EB_HALFSTEP (1) если энкодер делает один поворот за два щелчка
   lcd.begin(16, 2);
-  lcd.setCursor(0, 0); // Устанавливаем курсор в колонку 0 и строку 0
-  lcd.print("Download..."); // Печатаем первую строку
-  lcd.setCursor(0, 1);
-  lcd.print("Do It Yourself");
   Screen_1();
 }
 
@@ -76,7 +69,7 @@ void loop() {
         screen_mode = 2;   // если энкодер был нажат, то переключаемся на экран 2
         Screen_2();       // включаем второй экран
       }
-      
+
       break;
 
     case 2:
@@ -101,6 +94,7 @@ void loop() {
       }
       if (angle >= 360) angle = 360;
       if (enc.click()) {
+        
         screen_mode = 3;   // если энкодер был нажат, то переключаемся на экран 3
         Screen_3(); // включаем третий экран
         break;
@@ -114,23 +108,29 @@ void loop() {
     case 3:
       while (turns != current_turns) {
 
-        digitalWrite(dirPin, HIGH); // Установка направления вращения двигателя по часовой стрелке.
-        // Дописать сюда поворот шаговика на угол, заданный в экране 2.
+        /*
+         * Вот сюда дописать код, отвечающий за работу мотора диска
+         */
         
-        enc.tick(); // опрос происходит здесь
-        if (enc.click()) {
-          break;
-        }
+        myStepper.step(map(angle, 0, 359, 0, 200)); // поворот шаговика на заданный в экране 2 угол
+        
         if (digitalRead(line_finder_pin) == HIGH && !is_black_before) { // Если был белый, а теперь черный (т.е. изолента прошла круг), то
           current_turns++;                                              // увеличиваем число оборотов на 1
           is_black_before = true;                                       // и меняем флаг, что был черный
         }
-        if (!digitalRead(line_finder_pin) == HIGH) {
+        if (digitalRead(line_finder_pin) == LOW) {
           is_black_before = false;
         }
+
+        enc.tick(); // опрос энкодера
+        if (enc.click()) {
+          break;
+        }
+        
+        
+        //Serial.println(current_turns);
+        delay(50);                                                      // ToDo: Задержку подогнать под скорость вращения диска
         Screen_3();
-        Serial.println(current_turns);
-        delay(50);                                                      // ToDo: Задержку подогнать под скорость вращения тороида...
       }
       screen_mode = 4;
       Screen_4();
