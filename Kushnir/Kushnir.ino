@@ -18,6 +18,11 @@ const uint8_t CLK = 3;
 const uint8_t SW = 4;
 EncButton<EB_TICK, DT, CLK, SW> enc;  // энкодер с кнопкой
 
+// Подключение шаговика
+const int dirPin = 12;
+const int stepPin = 13;
+const int stepsPerRevolution = 200; // количество шагов на оборот, нужно ли?..
+
 const int line_finder_pin = 5; // Датчик линии (тахометр) на 5 пин
 
 int16_t turns = 0; // Количество необходимых витков (изначально и минимально: 0, максимально: ~32500) - оно же количество шагов для полного оборота шаговика
