@@ -25,7 +25,7 @@ const int stepsPerRevolution = 200; // количество шагов на об
 
 const int line_finder_pin = 5; // Датчик линии (тахометр) на 5 пин
 
-int16_t turns = 0; // Количество необходимых витков (изначально и минимально: 0, максимально: ~32500) - оно же количество шагов для полного оборота шаговика
+int16_t turns = 1; // Количество необходимых витков (изначально и минимально: 0, максимально: ~32500) - оно же количество шагов для полного оборота шаговика
 int16_t angle = 30; // Угол между витками, влияет на плотность намотки (по умолчанию 30 градусов)
 int current_turns = -1; // Текущее количество оборотов
 bool is_black_before = false; // Белый цвет на прошлой итерации цикла
@@ -171,19 +171,26 @@ void Screen_2() {
 void Screen_3() {
   lcd.print("                ");      // очистка дисплея
   lcd.setCursor(0, 0);                // Устанавливаем курсор в колонку 0 и строку 0
-  lcd.print("Turns done: ");          // Показать количество сделанных оборотов
+  lcd.print("Done: ");          // Показать количество сделанных оборотов
   lcd.print(current_turns);
-  lcd.setCursor(0, 1);
-  lcd.print("From: ");            // Количество сделанных оборотов в %
-  //int complete = (current_turns / turns) * 100;
+  lcd.print("/");
   lcd.print(turns);
-  lcd.print("        ");
+  lcd.print("   ");
+  lcd.setCursor(0, 1);
+  lcd.print("Already: ");            // Количество сделанных оборотов в %
+  int complete = current_turns * 100 / turns;
+  lcd.print(complete);
+  lcd.print("%    ");
+
+  // lcd.print(turns);
+  // lcd.print("       ");
+
 }
 
 void Screen_4() {
   lcd.print("                ");      // очистка дисплея
   lcd.setCursor(0, 0);                // Устанавливаем курсор в колонку 0 и строку 0
-  lcd.print("Done!           ");
+  lcd.print("Finished!       ");
   lcd.setCursor(0, 1);
   lcd.print("                ");
 }
